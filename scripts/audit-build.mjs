@@ -8,6 +8,8 @@ import { join } from 'node:path';
 const DIST = process.argv[2] || '.output/chrome-mv3';
 // w3.org, react.dev and MDN appear only in library comments, SVG namespaces and error text.
 const ALLOWED_HOST = /(^|\.)(facebook\.com|fbcdn\.net|fbsbx\.com|w3\.org|react\.dev|developer\.mozilla\.org)$/i;
+// Tailwind's license banner names its site. Allowed in CSS only, where the CSP blocks requests to it anyway.
+const ALLOWED_CSS_HOST = /^tailwindcss\.com$/i;
 const ALLOWED_PERMISSIONS = new Set(['storage', 'scripting', 'activeTab', 'tabs', 'cookies']);
 const FORBIDDEN = [
   [/_0x[0-9a-f]{4,}/, 'obfuscated identifiers'],
@@ -66,7 +68,7 @@ for (const file of files) {
   const text = readFileSync(file, 'utf8');
   for (const [re, why] of FORBIDDEN) if (re.test(text)) problems.push(`${file}: ${why} (${re.source})`);
   for (const [, host] of text.matchAll(/https?:\/\/([a-z0-9.-]+\.[a-z]{2,})/gi)) {
-    if (!ALLOWED_HOST.test(host)) problems.push(`${file}: unexpected host ${host}`);
+    if (!ALLOWED_HOST.test(host) && !(file.endsWith('.css') && ALLOWED_CSS_HOST.test(host))) problems.push(`${file}: unexpected host ${host}`);
   }
 }
 const background = readFileSync(join(DIST, 'background.js'), 'utf8');

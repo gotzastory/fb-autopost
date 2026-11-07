@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
 
 const FACEBOOK_HOSTS = 'https://*.facebook.com https://*.fbcdn.net https://*.fbsbx.com';
@@ -29,7 +30,7 @@ export default defineConfig({
     host_permissions: ['*://*.facebook.com/*', '*://*.fbcdn.net/*', '*://*.fbsbx.com/*'],
     ...(command === 'build' && { content_security_policy: { extension_pages: CSP } }),
   }),
-  // Unminified on purpose: the shipped extension stays readable, so it can be audited.
+  // JS is unminified on purpose: the shipped extension stays readable, so it can be audited. CSS is minified.
   // esnext: functions passed to chrome.scripting are serialized and must not use helpers.
-  vite: () => ({ build: { minify: false, target: 'esnext' } }),
+  vite: () => ({ plugins: [tailwindcss()], build: { minify: false, cssMinify: true, target: 'esnext' } }),
 });

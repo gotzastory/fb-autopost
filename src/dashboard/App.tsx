@@ -167,44 +167,41 @@ export function App() {
   return (
     <>
       <ProfileHeader profile={account.profile} />
-      <main className="page">
-        <div className="page-head">
-          <div>
-            <h1>Compose Post</h1>
-            <p>Create a post and select your joined Facebook groups.</p>
-          </div>
+      <main className="mx-auto max-w-6xl px-3 pt-4 pb-16 sm:px-5">
+        <div className="mb-3">
+          <h1 className="mb-1 text-2xl font-bold">Compose Post</h1>
+          <p className="text-base-content/60">Create a post and select your joined Facebook groups.</p>
         </div>
-        <div className="syncbar">
-          <div>
-            <b>Sync your Facebook groups</b>
-            <span id="syncStatus">
+        <div className="mb-4 flex flex-col gap-3 rounded-box border border-primary/20 bg-primary/5 px-4 py-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <b className="mb-0.5 block text-[15px] text-primary">Sync your Facebook groups</b>
+            <span className="block text-xs leading-normal text-base-content/60" id="syncStatus">
               {sync.banner ? (
-                <span className={`sync-live${sync.banner.paused ? ' paused' : ''}`}>
-                  <span>
-                    {sync.banner.title && <b>{sync.banner.title}</b>}
-                    <small>{sync.banner.detail}</small>
-                  </span>
+                <span className={sync.banner.paused ? 'block text-warning' : 'block'}>
+                  {sync.banner.title && <b className={`block ${sync.banner.paused ? 'text-warning' : 'text-primary'}`}>{sync.banner.title}</b>}
+                  <small className="mt-0.5 block text-xs">{sync.banner.detail}</small>
                 </span>
               ) : (
                 sync.lastResult || 'Sync group IDs/names from Facebook. Covers can be refreshed separately.'
               )}
             </span>
           </div>
-          <div className="sync-actions">
-            <button className="sync-cover-btn" id="syncCovers" disabled={syncBusy} onClick={() => void sync.syncCovers()}>▧ Sync Group Covers</button>
+          <div className="flex flex-none flex-wrap items-center gap-2">
+            <button className="btn btn-sm bg-base-100" id="syncCovers" disabled={syncBusy} onClick={() => void sync.syncCovers()}>▧ Sync Group Covers</button>
             {syncBusy && (
-              <button className={`sync-pause-btn${sync.paused ? ' resume' : ''}`} id="syncPause" onClick={() => void sync.togglePause()}>{sync.paused ? '▶ Resume' : 'Ⅱ Pause'}</button>
+              <button className={`btn btn-soft btn-sm ${sync.paused ? 'btn-primary' : 'btn-warning'}`} id="syncPause" onClick={() => void sync.togglePause()}>{sync.paused ? '▶ Resume' : 'Ⅱ Pause'}</button>
             )}
-            <button className="sync-btn" id="syncGroups" disabled={syncBusy} aria-busy={sync.groupSyncing} onClick={() => void sync.syncGroups()}>{sync.groupSyncing ? '↻ Syncing…' : '↻ Sync from Facebook'}</button>
+            <button className="btn btn-primary btn-sm" id="syncGroups" disabled={syncBusy} aria-busy={sync.groupSyncing} onClick={() => void sync.syncGroups()}>{sync.groupSyncing ? '↻ Syncing…' : '↻ Sync from Facebook'}</button>
           </div>
         </div>
-        <div className="manualbar">
-          <div className="manual-copy">
-            <span aria-hidden="true" className="manual-icon">↗</span>
-            <div><b>Add manually</b><span>Paste a Facebook group URL</span></div>
+        <div className="mb-4 rounded-box border border-base-300 bg-base-100 px-4 py-3">
+          <div className="mb-2.5 flex items-center gap-3">
+            <span aria-hidden="true" className="grid size-9 flex-none place-items-center rounded-lg bg-primary/10 text-xl font-bold text-primary">↗</span>
+            <div><b className="block">Add manually</b><span className="block text-xs text-base-content/60">Paste a Facebook group URL</span></div>
           </div>
-          <div className="manual-form">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
             <input
+              className="input w-full min-w-0 sm:flex-1"
               autoComplete="off"
               id="manualGroupUrl"
               aria-label="Facebook group URL"
@@ -214,26 +211,26 @@ export function App() {
               onChange={(e) => setManualUrl(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && isManualGroupUrl(manualUrl) && void addManualGroup()}
             />
-            <button className="manual-btn" id="addManualGroup" disabled={!isManualGroupUrl(manualUrl)} onClick={() => void addManualGroup()}>＋ Add</button>
+            <button className="btn btn-primary" id="addManualGroup" disabled={!isManualGroupUrl(manualUrl)} onClick={() => void addManualGroup()}>＋ Add</button>
           </div>
-          <div aria-live="polite" className={`manual-status ${manual.kind}`} id="manualStatus">{manual.message}</div>
+          <div aria-live="polite" className={`mt-2 text-xs empty:hidden ${manual.kind === 'error' ? 'text-error' : manual.kind === 'ok' ? 'text-success' : 'text-base-content/60'}`} id="manualStatus">{manual.message}</div>
         </div>
-        <div className="layout">
-          <section>
-            <div className="panel post-composer">
-              <div className="composer-title-row"><h2>Post Content</h2></div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
+          <section className="min-w-0">
+            <div className="mb-4 rounded-box border border-base-300 bg-base-100 p-5 pb-3 shadow-sm">
+              <h2 className="mb-3.5 text-sm font-bold">Post Content</h2>
               <IdentitySelector identity={account.identity} profileIdentity={account.profileIdentity} pages={account.pages} refreshing={account.refreshingPages} onRefresh={() => void account.refreshPages()} onSwitch={(t) => void account.switchTo(t)} />
               <Composer text={text} onText={setText} background={background} onBackground={setBackground} files={files} onAddFiles={(f) => void addFiles(f)} onRemoveFile={(i) => void removeFile(i)} spintax={spintax} onSpintax={toggleSpintax} />
-              <div className="counter"><span id="chars">{text.length}</span> chars</div>
+              <div className="mt-1.5 text-xs text-base-content/60"><span id="chars">{text.length}</span> chars</div>
             </div>
             <PostPreview identity={account.identity} text={text} spintax={spintax} background={background} files={files} groupCount={selected.size} />
-            <div className="actionbar">
-              <button className="primary" id="postBtn" onClick={onPostClick}>
-                {posting.running ? (posting.paused ? 'Resume' : 'Pause') : <>Post to (<span id="postCount">{selected.size}</span>)</>}
+            <div className="flex gap-2.5">
+              <button className="btn btn-primary flex-1" id="postBtn" onClick={onPostClick}>
+                {posting.running ? (posting.paused ? 'Resume' : 'Pause') : <span>Post to (<span id="postCount">{selected.size}</span>)</span>}
               </button>
-              {posting.running && <button className="stop-post" id="stopPostBtn" onClick={posting.stop}>Stop</button>}
+              {posting.running && <button className="btn btn-soft btn-error" id="stopPostBtn" onClick={posting.stop}>Stop</button>}
             </div>
-            <div className="notice" id="status" role="status">{notice}</div>
+            <div className="mt-2.5 text-xs text-base-content/60" id="status" role="status">{notice}</div>
             {posting.visible && <ProgressPanel progress={posting.progress} />}
           </section>
           <GroupsPanel

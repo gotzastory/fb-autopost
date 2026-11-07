@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { App } from '@/dashboard/App';
 import { send } from '@/lib/types';
-import '@/dashboard/common.css';
+import '@/styles/app.css';
 
 // Closing or reloading this page stops all activity. The port's disconnect is the durable
 // signal, so it opens here, once, outside React's lifecycle.

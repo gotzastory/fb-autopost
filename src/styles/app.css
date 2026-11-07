@@ -1,0 +1,43 @@
+/* source(none): only UI files are scanned, so the large engine and content scripts add no classes. */
+@import 'tailwindcss' source(none);
+@source '../dashboard';
+@source '../entrypoints';
+
+@plugin 'daisyui' {
+  themes: light --default;
+  logs: false;
+  /* Only what the UI uses: daisyUI ships every component otherwise, doubling the CSS. Add a name here when using a new component. */
+  include: properties, rootcolor, rootscrolllock, rootscrollgutter, svg, radius, badge, button, checkbox, input, link, loading, modal, navbar, progress, textarea, toggle;
+}
+
+/* daisyUI's default semantic colors are too pale for small text on white. */
+@plugin 'daisyui/theme' {
+  name: 'light';
+  default: true;
+  --color-primary: #2864e8;
+  --color-primary-content: #ffffff;
+  --color-secondary: #7658f5;
+  --color-secondary-content: #ffffff;
+  --color-info: #2864e8;
+  --color-info-content: #ffffff;
+  --color-success: #16803c;
+  --color-success-content: #ffffff;
+  --color-warning: #b7791f;
+  --color-warning-content: #ffffff;
+  --color-error: #c53b3b;
+  --color-error-content: #ffffff;
+}
+
+@theme {
+  --font-sans: Inter, 'Segoe UI', Arial, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-base-200 text-sm text-base-content;
+  }
+  /* Scrollbars stay hidden, as in the previous UI. */
+  * {
+    scrollbar-width: none;
+  }
+}
