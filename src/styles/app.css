@@ -1,7 +1,9 @@
 /* source(none): only UI files are scanned, so the large engine and content scripts add no classes. */
 @import 'tailwindcss' source(none);
+@import './fonts.css';
 @source '../dashboard';
 @source '../entrypoints';
+@source '../lib/i18n.tsx';
 
 @plugin 'daisyui' {
   themes: light --default;
@@ -10,34 +12,61 @@
   include: properties, rootcolor, rootscrolllock, rootscrollgutter, svg, radius, badge, button, checkbox, input, link, loading, modal, navbar, progress, textarea, toggle;
 }
 
-/* daisyUI's default semantic colors are too pale for small text on white. */
+/* "Dispatch desk": cool paper, ink text, teal for choosing, orange only for sending. Flat: borders, no depth. */
 @plugin 'daisyui/theme' {
   name: 'light';
   default: true;
-  --color-primary: #2864e8;
+  --color-base-100: #ffffff;
+  --color-base-200: #f2f4f3;
+  --color-base-300: #d3dbd8;
+  --color-base-content: #1c2b2d;
+  --color-primary: #0f766e;
   --color-primary-content: #ffffff;
-  --color-secondary: #7658f5;
+  --color-secondary: #33585c;
   --color-secondary-content: #ffffff;
-  --color-info: #2864e8;
+  --color-accent: #c2410c;
+  --color-accent-content: #ffffff;
+  --color-neutral: #1c2b2d;
+  --color-neutral-content: #ffffff;
+  --color-info: #0e7490;
   --color-info-content: #ffffff;
-  --color-success: #16803c;
+  --color-success: #15803d;
   --color-success-content: #ffffff;
-  --color-warning: #b7791f;
+  --color-warning: #a16207;
   --color-warning-content: #ffffff;
-  --color-error: #c53b3b;
+  --color-error: #b91c1c;
   --color-error-content: #ffffff;
+  --radius-selector: 0.375rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.625rem;
+  --depth: 0;
+  --noise: 0;
 }
 
 @theme {
-  --font-sans: Inter, 'Segoe UI', Arial, sans-serif;
+  --font-sans: 'IBM Plex Sans Thai', 'Segoe UI', Tahoma, sans-serif;
+  /* Thai stacks marks above and below the line (ที่, นี้); tighter defaults clip them under truncate. */
+  --text-xs--line-height: 1.5;
+  --text-sm--line-height: 1.5;
 }
 
 @layer base {
   body {
-    @apply bg-base-200 text-sm text-base-content;
+    @apply bg-base-200 text-sm leading-normal text-base-content antialiased;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
   }
   /* Scrollbars stay hidden, as in the previous UI. */
   * {
     scrollbar-width: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0s !important;
+      animation-duration: 0s !important;
+    }
   }
 }

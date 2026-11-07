@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { LangToggle, useT } from '@/lib/i18n';
 import { send, type Profile } from '@/lib/types';
+import { Icon } from '@/dashboard/Icon';
 import '@/styles/app.css';
 
 const isValidId = (id: unknown) => /^\d{5,}$/.test(String(id ?? '').trim()) && !/^0+$/.test(String(id).trim());
 
 function Popup() {
+  const t = useT();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [checking, setChecking] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,29 +43,45 @@ function Popup() {
     setRefreshing(false);
   };
 
+  const state = checking ? 'checking' : profile ? 'connected' : 'disconnected';
   return (
-    <div className="flex flex-col gap-3 p-4 text-[13px]">
-      <div className="flex items-center justify-between">
-        <span className="text-base font-bold">Auto Post FB</span>
-        <span className={`badge badge-soft badge-sm font-bold ${!checking && !profile ? 'badge-error' : 'badge-success'}`}>{checking ? '● Checking…' : profile ? '● Connected' : '● Disconnected'}</span>
+    <div className="flex flex-col gap-3 p-4">
+      <div className="flex items-center gap-2">
+        <span aria-hidden="true" className="grid size-7 place-items-center rounded-lg bg-accent text-accent-content"><Icon name="send" className="size-3.5" /></span>
+        <span className="flex-1 text-base font-bold">Auto Post FB</span>
+        <LangToggle />
       </div>
-      <div className="flex items-center gap-3 rounded-box border border-base-300 bg-base-100 p-3 shadow-sm">
-        <div className="relative size-10 flex-none">
-          <img className="size-10 rounded-full bg-base-200 object-cover" src={avatar} alt="" />
-          {profile && <span className="absolute -right-px -bottom-px size-3 rounded-full border-2 border-base-100 bg-success" aria-hidden="true" />}
+      <div className="rounded-box border border-base-300 bg-base-100 p-3">
+        <div className="flex items-center gap-3">
+          <img className="size-11 flex-none rounded-full bg-base-200 object-cover" src={avatar} alt="" />
+          <div className="min-w-0 flex-1">
+            <span className="block truncate font-semibold">{profile ? profile.name || t('Facebook Account') : t('Facebook no login')}</span>
+            <span className="block text-xs text-base-content/70 tabular-nums">{profile ? `UID: ${profile.id}` : t('Log in to Facebook to connect')}</span>
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-bold">{profile ? profile.name || 'Facebook Account' : 'Facebook no login'}</span>
-          <span className="mt-0.5 block font-mono text-[10px] text-base-content/60">{profile ? `UID: ${profile.id}` : 'Log in to Facebook to connect'}</span>
+        <div className="mt-3 flex items-center justify-between border-t border-base-300 pt-2.5 text-xs">
+          <span className={`flex items-center gap-1.5 font-semibold ${state === 'connected' ? 'text-success' : state === 'disconnected' ? 'text-error' : 'text-base-content/70'}`}>
+            <span aria-hidden="true" className="size-2 rounded-full bg-current" />
+            {state === 'checking' ? t('Checking…') : state === 'connected' ? t('Connected') : t('Disconnected')}
+          </span>
+          <span className="text-base-content/70 tabular-nums">{t('Last connection')} {lastSeen}</span>
         </div>
       </div>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2.5 rounded-box bg-base-100 p-2.5"><span className="grid size-7 flex-none place-items-center rounded-lg bg-primary/10 font-extrabold text-primary">◉</span><div><b className="block text-xs">Keep Facebook logged in</b><small className="mt-0.5 block text-[10px] text-base-content/60">Keep your Facebook account logged in while posting.</small></div></div>
-        <div className="flex items-center gap-2.5 rounded-box bg-base-100 p-2.5"><span className="grid size-7 flex-none place-items-center rounded-lg bg-secondary/10 font-extrabold text-secondary">♢</span><div><b className="block text-xs">Stays in your browser</b><small className="mt-0.5 block text-[10px] text-base-content/60">Talks only to Facebook. Heavy posting can still trigger Facebook limits.</small></div></div>
-      </div>
-      <button className="btn btn-primary" disabled={!profile} onClick={openDashboard}>Open Dashboard</button>
-      <button className="btn btn-ghost btn-xs font-normal" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? '↻  Refreshing…' : '↻   Refresh Connection'}</button>
-      <div className="text-center text-[10px] text-success">• Last connection {lastSeen}</div>
+      <ul className="flex flex-col gap-2.5 px-1">
+        <li className="flex gap-2.5">
+          <Icon name="userCheck" className="mt-0.5 size-4 text-primary" />
+          <div><b className="block text-xs">{t('Keep Facebook logged in')}</b><span className="block text-xs text-base-content/70">{t('Keep your Facebook account logged in while posting.')}</span></div>
+        </li>
+        <li className="flex gap-2.5">
+          <Icon name="shield" className="mt-0.5 size-4 text-primary" />
+          <div><b className="block text-xs">{t('Stays in your browser')}</b><span className="block text-xs text-base-content/70">{t('Talks only to Facebook. Heavy posting can still trigger Facebook limits.')}</span></div>
+        </li>
+      </ul>
+      <button className="btn btn-primary" disabled={!profile} onClick={openDashboard}>{t('Open Dashboard')}</button>
+      <button className="btn btn-ghost btn-sm font-normal" disabled={refreshing} onClick={() => void refresh()}>
+        <Icon name="refresh" className={`size-4${refreshing ? ' animate-spin' : ''}`} />
+        {refreshing ? t('Refreshing…') : t('Refresh connection')}
+      </button>
     </div>
   );
 }
