@@ -3,6 +3,24 @@ export function startPostResponseObserver() {
   const originalFetch = window.fetch;
   const OriginalXHR = window.XMLHttpRequest;
   let observerState = null;
+  // Dev only: this MAIN-world script has no chrome.runtime, so the poster script relays these to the log server.
+  const devLog = (text) => {
+    if (import.meta.env.DEV)
+      window.postMessage(
+        { source: 'AGP_DEV_LOG', text: String(text).slice(0, 1500) },
+        window.location.origin,
+      );
+  };
+  const friendlyName =
+    import.meta.env.DEV &&
+    ((body) => {
+      try {
+        const s = body instanceof FormData ? new URLSearchParams(body).toString() : String(body ?? '');
+        return decodeURIComponent((s.match(/fb_api_req_friendly_name=([^&]+)/) || [])[1] || '?');
+      } catch {
+        return '?';
+      }
+    });
 
   function escapeRegExp(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -133,6 +151,10 @@ export function startPostResponseObserver() {
   function inspectResponse(text, requestWasComposerStoryCreate) {
     if (!observerState || Date.now() > observerState.expiresAt || !requestWasComposerStoryCreate) return;
     const storyCreate = normalizeGraphQLPayload(text);
+    if (import.meta.env.DEV)
+      devLog(
+        `story create response: ${text.length} chars, story_create ${storyCreate ? 'found' : 'missing'}: ${text.slice(0, 600)}`,
+      );
     if (!storyCreate) return;
     const groupId = observerState.groupId;
     const observationId = observerState.observationId;
@@ -159,6 +181,7 @@ export function startPostResponseObserver() {
       hasGroupFeedStoryEdge: Boolean(storyCreate.group_feed_story_edge?.node),
       pendingSignals,
     };
+    if (import.meta.env.DEV) devLog(`snapshot: ${JSON.stringify(snapshot)}`);
     window.postMessage(
       { source: 'AGP_POST_RESPONSE_OBSERVER', observationId, groupId, snapshot },
       window.location.origin,
@@ -175,6 +198,7 @@ export function startPostResponseObserver() {
         groupId: data.groupId,
         expiresAt: Date.now() + 45000,
       };
+      if (import.meta.env.DEV) devLog(`armed for group ${data.groupId}`);
       window.postMessage(
         { source: 'AGP_POST_RESPONSE_BRIDGE', type: 'OBSERVER_ARMED', observationId: data.observationId },
         window.location.origin,
@@ -199,7 +223,10 @@ export function startPostResponseObserver() {
               : input instanceof Request
                 ? input.url
                 : '';
+        if (import.meta.env.DEV && !String(url).includes('/api/graphql/'))
+          devLog(`fetch ${response.status} ${String(url).slice(0, 160)}`);
         if (String(url).includes('/api/graphql/')) {
+          if (import.meta.env.DEV) devLog(`fetch graphql: ${friendlyName(init?.body)}`);
           const requestIsComposer =
             isComposerStoryCreateRequest(url, init?.body) ||
             (input instanceof Request &&
@@ -229,12 +256,17 @@ export function startPostResponseObserver() {
     };
     const originalSend = xhr.send;
     xhr.send = function (body) {
+      if (import.meta.env.DEV && observerState && !String(requestUrl).includes('/api/graphql/'))
+        xhr.addEventListener('loadend', () =>
+          devLog(`xhr ${xhr.status} ${String(requestUrl).slice(0, 160)}`),
+        );
       if (
         observerState &&
         Date.now() <= observerState.expiresAt &&
         String(requestUrl).includes('/api/graphql/')
       ) {
         const requestIsComposer = isComposerStoryCreateRequest(requestUrl, body);
+        if (import.meta.env.DEV) devLog(`xhr graphql: ${friendlyName(body)}`);
         if (requestIsComposer) {
           xhr.addEventListener('load', () => {
             if (xhr.responseText) inspectResponse(xhr.responseText, true);

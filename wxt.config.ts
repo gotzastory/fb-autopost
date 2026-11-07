@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
+import { startDevLogServer } from './scripts/dev-log-server.mjs';
 
 const FACEBOOK_HOSTS = 'https://*.facebook.com https://*.fbcdn.net https://*.fbsbx.com';
 // Enforced by the browser for the service worker, dashboard and popup, whatever the code tries.
@@ -19,6 +20,7 @@ const CSP = [
 
 export default defineConfig({
   srcDir: 'src',
+  hooks: { 'server:started': () => startDevLogServer() },
   modules: ['@wxt-dev/module-react'],
   manifest: ({ command }) => ({
     name: 'Auto Post FB',

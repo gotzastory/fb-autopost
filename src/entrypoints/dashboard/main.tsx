@@ -1,7 +1,10 @@
 import { createRoot } from 'react-dom/client';
 import { App } from '@/dashboard/App';
+import { installPageDevLog } from '@/lib/dev-log';
 import { send } from '@/lib/types';
 import '@/styles/app.css';
+
+if (import.meta.env.DEV) installPageDevLog('dashboard');
 
 // Closing or reloading this page stops all activity. The port's disconnect is the durable
 // signal, so it opens here, once, outside React's lifecycle.

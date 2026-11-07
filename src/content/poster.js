@@ -770,13 +770,11 @@ export function startPoster() {
         hintKey: o.key,
         searched: i,
         structuralSearchEnabled: !0,
-        matchedCandidates: e
-          .slice(0, 5)
-          .map((e) => ({
-            labels: e.labels.slice(0, 3),
-            matchedLang: e.matchedLang || null,
-            matchedHint: e.matchedHint || null,
-          })),
+        matchedCandidates: e.slice(0, 5).map((e) => ({
+          labels: e.labels.slice(0, 3),
+          matchedLang: e.matchedLang || null,
+          matchedHint: e.matchedHint || null,
+        })),
         visibleLabels: Array.from(document.querySelectorAll(se))
           .filter(t)
           .filter(ce)
@@ -903,10 +901,14 @@ export function startPoster() {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     if (lastTrigger instanceof HTMLElement) {
+      const dialogsBefore = document.querySelectorAll('[role="dialog"]').length;
       try {
         lastTrigger.click();
       } catch {}
-      const box = await waitForReferenceComposerTextbox(3000);
+      let box = await waitForReferenceComposerTextbox(3000);
+      // The dialog shell can open seconds before its editor loads (seen live: dialog present, no textbox at 3s).
+      if (!box && document.querySelectorAll('[role="dialog"]').length > dialogsBefore)
+        box = await waitForReferenceComposerTextbox(12000);
       if (box) return { success: true };
     }
     const diagnostics = JSON.stringify({
@@ -1840,7 +1842,12 @@ export function startPoster() {
     }
     opts.onReadyToSubmit?.();
     // Find the native Facebook Post control only inside the active composer dialog.
-    const findPostButton = () => {
+    const isMediaControl = (el) =>
+      !!el.querySelector?.('img,video,canvas') ||
+      /\b(edit|photo|video|remove|delete|close|tag|anonymous|crop|alt text)\b/i.test(
+        [el.getAttribute?.('aria-label'), el.innerText].filter(Boolean).join(' '),
+      );
+    const findPostButton = (includeDisabled = false) => {
       const dialog =
         box.closest('[role="dialog"]') ||
         o()
@@ -1851,7 +1858,7 @@ export function startPoster() {
           .find((d) => be(d));
       const root = dialog || document;
       const nodes = Array.from(root.querySelectorAll('button,[role="button"],input[type="submit"]')).filter(
-        (el) => t(el) && n(el),
+        (el) => t(el) && (includeDisabled || n(el)),
       );
       const postWords =
         /^(post|publish|publish now|post now|đăng|نشر|投稿|发布|โพสต์|kirim|publicar|postar|veröffentlichen)$/i;
@@ -1867,7 +1874,16 @@ export function startPoster() {
             .trim();
           const low = raw.toLowerCase();
           let score = -1e4;
-          if (postWords.test(raw) || postWords.test(low)) score = 200;
+          // Never the attached photo/video or its controls (Edit, remove): clicking those opens Facebook's photo editor.
+          if (isMediaControl(el)) return { el, score, raw };
+          const fields = [el.innerText, el.getAttribute('aria-label'), el.value].map((x) =>
+            String(x || '')
+              .normalize('NFKC')
+              .replace(/\s+/g, ' ')
+              .trim(),
+          );
+          if (fields.some((f) => postWords.test(f)) || postWords.test(raw) || postWords.test(low))
+            score = 200;
           else if (/(^|\s)(post|publish|publish now|đăng|نشر|投稿|发布|โพสต์)(\s|$)/i.test(raw)) score = 160;
           else if (el.getAttribute('data-testid') && /post|publish/i.test(el.getAttribute('data-testid')))
             score = 140;
@@ -1878,7 +1894,11 @@ export function startPoster() {
           return { el, score, raw };
         })
         .filter((x) => x.score > 0)
-        .sort((a, b) => b.score - a.score);
+        // Equal scores: the lowest control wins; Facebook's Post sits at the bottom of the dialog.
+        .sort(
+          (a, b) =>
+            b.score - a.score || b.el.getBoundingClientRect().bottom - a.el.getBoundingClientRect().bottom,
+        );
       return scored[0]?.el || null;
     };
     const postActivationVisible = async (btn, box, timeout = 8000) => {
@@ -1903,18 +1923,24 @@ export function startPoster() {
             .reverse()
             .find((d) => be(d));
         const bodyText = String(dialog?.innerText || document.body?.innerText || '');
+        const why = (reason) => {
+          if (import.meta.env.DEV)
+            console.info('[PostSubmit] transition seen:', reason, '| dialog text:', bodyText.slice(0, 400));
+          return true;
+        };
         // A real submit transition must be observable. Merely dispatching a click
         // event is NOT enough to mark the post as submitted.
-        if (!document.contains(btn) || !btn.isConnected) return true;
-        if (!document.contains(box) || !box.isConnected) return true;
+        if (!document.contains(btn) || !btn.isConnected) return why('button removed');
+        if (!document.contains(box) || !box.isConnected) return why('textbox removed');
         if (
           btn.disabled ||
           String(btn.getAttribute('aria-disabled') || '').toLowerCase() === 'true' ||
           String(btn.getAttribute('aria-busy') || '').toLowerCase() === 'true'
         )
-          return true;
-        if (postingWords.test(bodyText)) return true;
-        if (dialog?.querySelector('[role="progressbar"],[aria-busy="true"]')) return true;
+          return why('button disabled/busy');
+        if (postingWords.test(bodyText)) return why(`posting word: ${bodyText.match(postingWords)?.[0]}`);
+        if (dialog?.querySelector('[role="progressbar"],[aria-busy="true"]'))
+          return why('progressbar/busy in dialog');
         const currentText = String(
           [btn?.innerText, btn?.textContent, btn?.getAttribute?.('aria-label'), btn?.getAttribute?.('title')]
             .filter(Boolean)
@@ -1931,6 +1957,22 @@ export function startPoster() {
     };
     const activatePostButton = async (btn) => {
       if (!btn || !t(btn) || !n(btn)) return false;
+      if (import.meta.env.DEV) {
+        const r = btn.getBoundingClientRect();
+        console.info(
+          '[PostSubmit] clicking:',
+          JSON.stringify({
+            via: findPostButton() === btn ? 'label' : 'position-guess',
+            labelledPostExists: !!findPostButton(true),
+            tag: btn.tagName,
+            role: btn.getAttribute('role'),
+            aria: btn.getAttribute('aria-label'),
+            text: String(btn.innerText || '').slice(0, 120),
+            rect: [r.x, r.y, r.width, r.height].map(Math.round),
+            html: btn.outerHTML.slice(0, 300),
+          }),
+        );
+      }
       btn.scrollIntoView?.({ block: 'center', inline: 'nearest' });
       try {
         btn.focus?.();
@@ -1992,8 +2034,15 @@ export function startPoster() {
     // Facebook can re-render the composer controls after text/media insertion.
     // Always re-query the LIVE dialog and require an observable submit transition.
     // This prevents the queue from treating a synthetic click event as a real post.
+    // A labelled Post button that is disabled (Facebook does this while a photo uploads) means "wait".
+    // The position-based guesses (Se/Pe) are only for composers with no labelled Post button at all:
+    // seen live, they picked the attached photo tile and opened Facebook's photo editor instead of posting.
+    const pickPostButton = () => {
+      const btn = findPostButton() || (findPostButton(true) ? null : Se(box) || Pe());
+      return btn && !isMediaControl(btn) ? btn : null;
+    };
     for (let tries = 0; tries < 120; tries++) {
-      const btn = findPostButton() || Se(box) || Pe();
+      const btn = pickPostButton();
       if (btn && t(btn) && n(btn)) {
         const primary = await activatePostButton(btn);
         if (primary) {
@@ -2005,7 +2054,7 @@ export function startPoster() {
         }
         // Only if the first activation produced NO transition do one controlled
         // pointer/mouse activation on the freshly-rendered Post control.
-        const fresh = findPostButton() || Se(box) || Pe();
+        const fresh = pickPostButton();
         if (fresh && t(fresh) && n(fresh)) {
           const fallback = activatePostButtonFallback(fresh);
           if (fallback && (await postActivationVisible(fresh, box, 8000))) {
@@ -2728,6 +2777,7 @@ export function startPoster() {
     })().textContent = e;
   }
   function Ye(e) {
+    if (import.meta.env.DEV) console.info('[status]', e);
     Je(e);
   }
   async function Qe(groupId) {
@@ -2764,10 +2814,13 @@ export function startPoster() {
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase();
+    // Pending text already on the page (an older pending post, the group's approval notice) says
+    // nothing about this post; seen live firing in the same second as the Post click.
+    const pendingAtStart = detectExplicitPostPending(document);
     const scanDom = () => {
       if (disposed || !postClicked) return;
       const body = normalize(document.body?.innerText || document.body?.textContent || '');
-      if (detectExplicitPostPending(document)) {
+      if (!pendingAtStart && detectExplicitPostPending(document)) {
         finish({ kind: 'PENDING_APPROVAL', domConfirmed: true });
         return;
       }
@@ -2807,7 +2860,7 @@ export function startPoster() {
         // does not return the group_feed_story_edge in this particular GraphQL shape.
         // Requiring hasGroupFeedStoryEdge here caused real Photo/Text posts to fall
         // through to the dialog-closed fallback and display "Post URL unavailable".
-        if (detectExplicitPostPending(document)) {
+        if (!pendingAtStart && detectExplicitPostPending(document)) {
           finish({ kind: 'PENDING_APPROVAL', postId: snap.postId, pendingPostUrl: snap.pendingPostUrl });
           return;
         }
