@@ -2820,7 +2820,8 @@ export function startPoster() {
     const scanDom = () => {
       if (disposed || !postClicked) return;
       const body = normalize(document.body?.innerText || document.body?.textContent || '');
-      if (!pendingAtStart && detectExplicitPostPending(document)) {
+      // Only once the composer is gone: an older post's pending card can load in while this one is still uploading.
+      if (!pendingAtStart && !findReferenceComposerTextbox() && detectExplicitPostPending(document)) {
         finish({ kind: 'PENDING_APPROVAL', domConfirmed: true });
         return;
       }
@@ -2860,7 +2861,7 @@ export function startPoster() {
         // does not return the group_feed_story_edge in this particular GraphQL shape.
         // Requiring hasGroupFeedStoryEdge here caused real Photo/Text posts to fall
         // through to the dialog-closed fallback and display "Post URL unavailable".
-        if (!pendingAtStart && detectExplicitPostPending(document)) {
+        if (!pendingAtStart && !findReferenceComposerTextbox() && detectExplicitPostPending(document)) {
           finish({ kind: 'PENDING_APPROVAL', postId: snap.postId, pendingPostUrl: snap.pendingPostUrl });
           return;
         }
@@ -2869,10 +2870,11 @@ export function startPoster() {
         const hasExplicitPending =
           Boolean(snap.pendingPostUrl) ||
           (Array.isArray(snap.pendingSignals) && snap.pendingSignals.length > 0);
-        if (hasPublishedStory || hasPublishedUrl)
-          finish({ kind: 'PUBLISHED', postId: snap.postId, postUrl: snap.postUrl });
-        else if (hasExplicitPending)
+        // Pending flags win over a URL: approval-required groups return both (seen live: PENDING_CONTENT_CARD + permalink).
+        if (hasExplicitPending)
           finish({ kind: 'PENDING_APPROVAL', postId: snap.postId, pendingPostUrl: snap.pendingPostUrl });
+        else if (hasPublishedStory || hasPublishedUrl)
+          finish({ kind: 'PUBLISHED', postId: snap.postId, postUrl: snap.postUrl });
         // A weak/partial network snapshot is not a failure. Keep listening for the
         // Facebook confirmation toast or a stronger published-story signal.
         else scanDom();

@@ -161,8 +161,20 @@ export function startPostResponseObserver() {
     const story = storyCreate.story || storyCreate.group_feed_story_edge?.node || storyCreate;
     const pendingSignals = collectPendingSignals(story);
     const rawUrl = findGroupPostUrl(storyCreate, groupId);
-    const postId = findGroupPostId(storyCreate, groupId);
-    const url = rawUrl ? asAbsoluteUrl(rawUrl) : void 0;
+    // Video replies carry no story or URL, only story_id: base64 of "S:_I<actor>:VK:<post id>".
+    const idFromStoryId = (() => {
+      try {
+        return (atob(String(storyCreate.story_id || story?.id || '')).match(/:(\d+)$/) || [])[1];
+      } catch {
+        return void 0;
+      }
+    })();
+    const postId = findGroupPostId(storyCreate, groupId) || idFromStoryId;
+    const url = rawUrl
+      ? asAbsoluteUrl(rawUrl)
+      : postId && /^\d+$/.test(String(groupId))
+        ? `https://www.facebook.com/groups/${groupId}/posts/${postId}/`
+        : void 0;
     const pendingUrl =
       url && new URL(url).pathname.includes(`/groups/${groupId}/pending_posts/`) ? url : void 0;
     if (pendingUrl && !pendingSignals.includes('PENDING_POST_URL')) pendingSignals.push('PENDING_POST_URL');
