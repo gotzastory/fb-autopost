@@ -1819,11 +1819,13 @@ export function startPoster() {
         const bgResult = await applyFacebookBackground(form, opts.background);
         if (bgResult.applied) console.info('[Background] Facebook background selected', bgResult);
         else console.info('[Background] Background selection skipped', bgResult);
+        opts.onBackgroundResult?.(bgResult);
       } catch (err) {
         console.info(
           '[Background] background selection failed without blocking post',
           String(err?.message || err),
         );
+        opts.onBackgroundResult?.({ applied: false, reason: `BACKGROUND_ERROR: ${err?.message || err}` });
       }
     }
     if (!opts.referenceFabMediaInjected && typeof opts.beforeSubmit === 'function') {
@@ -2735,6 +2737,7 @@ export function startPoster() {
       disposed = false,
       armed = false,
       postClicked = false,
+      lastPostId = null,
       resolvePromise;
     const cleanup = () => {
       if (domTimer) clearInterval(domTimer);
@@ -2753,7 +2756,8 @@ export function startPoster() {
       if (disposed) return;
       disposed = true;
       cleanup();
-      resolvePromise(result);
+      // A post ID from Facebook's response survives even when the outcome came from the DOM or a timeout.
+      resolvePromise(!result.postId && lastPostId ? { ...result, postId: lastPostId } : result);
     };
     const normalize = (x) =>
       String(x || '')
@@ -2797,6 +2801,7 @@ export function startPoster() {
       ) {
         if (!postClicked) return;
         const snap = d.snapshot || {};
+        if (snap.postId) lastPostId = String(snap.postId);
         // Facebook's visible approval toast is authoritative for Pending.
         // A concrete group post URL is authoritative for Published even when Facebook
         // does not return the group_feed_story_edge in this particular GraphQL shape.
@@ -2859,6 +2864,9 @@ export function startPoster() {
         scanDom();
       },
       waitForOutcome: () => promise,
+      get postId() {
+        return lastPostId;
+      },
       dispose() {
         if (disposed) return;
         disposed = true;
@@ -3450,6 +3458,7 @@ export function startPoster() {
           composerHtmlLang: void 0,
           composerMatchedLang: void 0,
           composerMatchedHint: void 0,
+          backgroundResult: void 0,
           mediaExpectedCount: void 0,
           mediaPreviewCount: void 0,
           mediaAttachmentEvidenceCount: void 0,
@@ -3742,6 +3751,7 @@ export function startPoster() {
             et(a, { stage: 'READY_TO_SUBMIT' });
           },
           background: i.length ? '' : String(background || ''),
+          onBackgroundResult: (r) => a && (a.backgroundResult = r),
           mediaIds: i.length ? i : [],
           onPostButtonClicked: () => {
             (l && l.markPostButtonClicked(),
@@ -3865,7 +3875,7 @@ export function startPoster() {
           const recoveredUrl = await waitForComposerResultUrl(o, 'PUBLISHED', postUrlBaseline, 5000);
           if (recoveredUrl)
             return { kind: 'PUBLISHED', postUrl: recoveredUrl, domConfirmed: true, dialogClosed: true };
-          return { kind: 'DETECTOR_UNAVAILABLE', domConfirmed: true, dialogClosed: true };
+          return { kind: 'DETECTOR_UNAVAILABLE', postId: l.postId, domConfirmed: true, dialogClosed: true };
         })(),
       ]);
       const g = (function () {
@@ -4429,7 +4439,7 @@ export function startPoster() {
         const postBackground = typeof e.background === 'string' ? e.background : '';
         return (
           ot(e.taskId, e.runId, e.groupId, postContent, postMediaIds, postBackground, ut)
-            .then((r) => n(r))
+            .then((r) => n({ ...r, backgroundResult: ut?.backgroundResult }))
             .catch((err) =>
               n({
                 success: false,

@@ -152,6 +152,8 @@ export function applyProgress(s: ProgressState, m: ProgressMessage, nameOf: (id:
       };
     case 'delay':
       return { state: addLog(base, '', m.message || 'Waiting before next group…') };
+    case 'background':
+      return { state: addLog(base, '', `⚠ ${m.message || `${name}: Facebook background not applied`}`, 'pending') };
     case 'account-stop':
     case 'post-stop': {
       const text = m.message || (m.stage === 'account-stop' ? 'Facebook reported an account-level posting restriction. Posting stopped.' : 'Facebook no longer exposes a clickable Post button. Posting stopped.');

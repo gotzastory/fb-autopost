@@ -475,6 +475,15 @@ export async function runRealPostingJob({
             success: false,
             error: 'No response from Facebook posting content script',
           };
+          if (last.backgroundResult && !last.backgroundResult.applied)
+            emit({
+              stage: 'background',
+              index: index + 1,
+              total: total,
+              groupId: groupId,
+              groupName: g?.name || groupId,
+              message: `${g?.name || groupId}: Facebook background not applied (${last.backgroundResult.reason || 'unknown'})`,
+            });
           if (!last?.success && !last?.skipped && state.realPostJob?.statusByGroup) {
             for (let recoveryWait = 0; recoveryWait < 5e3; recoveryWait += 250) {
               const live = state.realPostJob.statusByGroup.get(String(groupId));

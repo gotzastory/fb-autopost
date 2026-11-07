@@ -110,7 +110,7 @@ export function startPostResponseObserver() {
       }
       for (const key of preferredKeys) {
         const v = node[key];
-        if (/^\\d+$/.test(String(v || ''))) return String(v);
+        if (/^\d+$/.test(String(v || ''))) return String(v);
       }
       for (const key of Object.keys(node)) {
         const found = walk(node[key]);
