@@ -3014,6 +3014,7 @@ export function startPoster() {
       .trim()
       .toLowerCase();
     const phrases = [
+      'we limit how often you can',
       'your account is restricted from posting',
       'your account has been restricted from posting',
       'your account is temporarily restricted',
@@ -3933,6 +3934,11 @@ export function startPoster() {
           return { kind: 'DETECTOR_UNAVAILABLE', postId: l.postId, domConfirmed: true, dialogClosed: true };
         })(),
       ]);
+      // A limited post gets no story back and the composer stays open, so only its text reveals the limit.
+      // Scoped to the open composer: feed posts can quote these phrases. The catch below stops the job.
+      const openComposer = u.isConnected ? u.closest('[role="dialog"]') : null;
+      if (openComposer && detectAccountPostingRestriction(openComposer))
+        throw new Error('Facebook account posting restriction');
       const g = (function () {
         var e, n;
         const o = Array.from(document.querySelectorAll('h1')).find(t),
