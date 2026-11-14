@@ -839,7 +839,7 @@ export async function scanJoinedGroupsBatched(tabId, pass = 1, onBatch = async (
           'buy_sell_discussion',
         ]);
         const generic =
-          /^(?:groups?|see all|view all|your groups|discover|your feed|groups you manage|groups you.?ve joined|create new group|facebook groups|view group|see group|open group|group|join|joined|leave|members?|posts?|private|public|public group|all groups you.?ve joined(?:\s*\(\d+\))?|you|your content|your groups|facebook user)$/iu;
+          /^(?:groups?|see all|view all|your groups|discover|your feed|groups you manage|groups you.?ve joined|create new group|facebook groups|view group|see group|open group|group|join|joined|leave|members?|posts?|private|public|public group|all groups you.?ve joined(?:\s*\([\d,.\s]+\))?|you|your content|your groups|facebook user|กลุ่ม|ดูทั้งหมด|กลุ่มของคุณ|ค้นพบ|ฟีดของคุณ|กลุ่มที่คุณจัดการ|กลุ่มที่คุณเข้าร่วม|กลุ่มทั้งหมดที่คุณเข้าร่วม(?:\s*\([\d,.\s]+\))?|สร้างกลุ่มใหม่|ดูกลุ่ม|เปิดกลุ่ม|เข้าร่วม|เข้าร่วมแล้ว|ออกจากกลุ่ม|สมาชิก|โพสต์|ส่วนตัว|สาธารณะ|กลุ่มสาธารณะ)$/iu;
         const groupId = (href) => {
           try {
             const u = new URL(href, location.href),
@@ -1028,19 +1028,31 @@ export async function scanJoinedGroupsBatched(tabId, pass = 1, onBatch = async (
         const headingLabel = (e) =>
           clean(e?.innerText || e?.textContent || e?.getAttribute?.('aria-label') || '');
         const pendingHeading =
-          headingNodes.find((e) => /^pending\s+group\s+requests?(?:\s*\(\d+\))?$/i.test(headingLabel(e))) ||
-          headingNodes.find((e) => /\bpending\s+group\s+requests?\b/i.test(headingLabel(e)));
-        // Facebook's actual heading is "All groups you've joined (22)".
-        // The old matcher omitted "All" and the count, so pending cards could
+          headingNodes.find((e) =>
+            /^(?:pending\s+group\s+requests?|คำขอเข้าร่วมกลุ่มที่รอดำเนินการ|คำขอที่รอดำเนินการ)(?:\s*\([\d,.\s]+\))?$/i.test(
+              headingLabel(e),
+            ),
+          ) ||
+          headingNodes.find((e) =>
+            /\bpending\s+group\s+requests?\b|คำขอเข้าร่วมกลุ่มที่รอดำเนินการ/i.test(headingLabel(e)),
+          );
+        // Facebook's actual heading is "All groups you've joined (22)" (or Thai equivalent, with commas for 1,000+).
+        // The old matcher omitted "All" and formatted counts, so pending cards could
         // pass through when the two sections were rendered in the same root.
         const joinedSectionHeading =
           headingNodes.find((e) =>
-            /^all\s+groups?\s+you(?:'|’)?ve\s+joined(?:\s*\(\d+\))?$/i.test(headingLabel(e)),
+            /^(?:all\s+groups?\s+you(?:'|’)?ve\s+joined|กลุ่มทั้งหมดที่คุณเข้าร่วม)(?:\s*\([\d,.\s]+\))?$/i.test(
+              headingLabel(e),
+            ),
           ) ||
           headingNodes.find((e) =>
-            /^groups?\s+you(?:'|’)?ve\s+joined(?:\s*\(\d+\))?$/i.test(headingLabel(e)),
+            /^(?:groups?\s+you(?:'|’)?ve\s+joined|กลุ่มที่คุณเข้าร่วม)(?:\s*\([\d,.\s]+\))?$/i.test(
+              headingLabel(e),
+            ),
           ) ||
-          headingNodes.find((e) => /\ball\s+groups?\s+you(?:'|’)?ve\s+joined\b/i.test(headingLabel(e)));
+          headingNodes.find((e) =>
+            /\ball\s+groups?\s+you(?:'|’)?ve\s+joined\b|กลุ่มทั้งหมดที่คุณเข้าร่วม/i.test(headingLabel(e)),
+          );
         const isPendingRequest = (a, card) => {
           const ay = a.getBoundingClientRect?.().top || 0;
           const py = pendingHeading?.getBoundingClientRect?.().top;
@@ -1052,7 +1064,7 @@ export async function scanJoinedGroupsBatched(tabId, pass = 1, onBatch = async (
           let n = a.parentElement;
           for (let d = 0; n && d < 8; d++, n = n.parentElement) nodes.push(n);
           const text = nodes.map((x) => clean(x.innerText || x.textContent || '')).join(' | ');
-          return /\bpending\s+group\s+requests?\b|\bmembership\s+request\s+pending\b|\brequest(?:ed)?\s+to\s+join\b|\bcancel\s+request\b|\banswer\s+questions\b/i.test(
+          return /\bpending\s+group\s+requests?\b|\bmembership\s+request\s+pending\b|\brequest(?:ed)?\s+to\s+join\b|\bcancel\s+request\b|\banswer\s+questions\b|คำขอเข้าร่วมกลุ่มที่รอดำเนินการ|ส่งคำขอเข้าร่วมแล้ว|ยกเลิกคำขอ|ตอบคำถาม/i.test(
             text,
           );
         };
@@ -1068,11 +1080,19 @@ export async function scanJoinedGroupsBatched(tabId, pass = 1, onBatch = async (
           const text = nodes.map((x) => clean(x.innerText || x.textContent || '')).join(' | ');
           // Joined cards expose positive membership signals; pending cards expose
           // "Requested to join"/"Answer questions". Never accept the latter.
-          if (/\brequest(?:ed)?\s+to\s+join\b|\banswer\s+questions\b|\bcancel\s+request\b/i.test(text))
+          if (
+            /\brequest(?:ed)?\s+to\s+join\b|\banswer\s+questions\b|\bcancel\s+request\b|ส่งคำขอเข้าร่วมแล้ว|ยกเลิกคำขอ|ตอบคำถาม/i.test(
+              text,
+            )
+          )
             return false;
-          if (/\byou(?:'|’)?ve\s+last\s+(?:visited|active)\b|\bjoined\s+group\b|\bjoined\b/i.test(text))
+          if (
+            /\byou(?:'|’)?ve\s+last\s+(?:visited|active)\b|\bjoined\s+group\b|\bjoined\b|เข้าชมครั้งล่าสุดเมื่อ|เข้าร่วมเมื่อ|เข้าร่วมแล้ว/i.test(
+              text,
+            )
+          )
             return true;
-          return Number.isFinite(jy);
+          return Number.isFinite(jy) || !pendingHeading;
         };
         const getCard = (a, id) => {
           let n = a.parentElement;
@@ -1164,6 +1184,11 @@ export async function scanJoinedGroupsBatched(tabId, pass = 1, onBatch = async (
               map.set(id, rec);
           }
         };
+        const parseExpectedCount = (raw) => {
+          const digits = String(raw || '').replace(/[^\d]/g, '');
+          const n = Number(digits);
+          return Number.isFinite(n) && n > 0 && n <= 100000 ? n : 0;
+        };
         const expectedFromPage = () => {
           const texts = [];
           const push = (v) => {
@@ -1176,15 +1201,15 @@ export async function scanJoinedGroupsBatched(tabId, pass = 1, onBatch = async (
             push(e.getAttribute?.('aria-label'));
           }
           const pats = [
-            /(?:all\s+groups?\s+you(?:'|’)?ve\s+joined|groups?\s+you(?:'|’)?ve\s+joined|groups?\s+you\s+have\s+joined)\s*[^\d]{0,80}(\d{1,6})/iu,
-            /(?:all\s+groups?\s+you(?:'|’)?ve\s+joined)[^\d\n]{0,120}\(\s*(\d{1,6})\s*\)/iu,
-            /(?:groups?\s+you(?:'|’)?ve\s+joined)[^\d\n]{0,40}\(\s*(\d{1,6})\s*\)/iu,
+            /(?:all\s+groups?\s+you(?:'|’)?ve\s+joined|groups?\s+you(?:'|’)?ve\s+joined|groups?\s+you\s+have\s+joined|กลุ่มทั้งหมดที่คุณเข้าร่วม|กลุ่มที่คุณเข้าร่วม)\s*[^\d]{0,80}(\d[\d,.\s]{0,9})/iu,
+            /(?:all\s+groups?\s+you(?:'|’)?ve\s+joined|กลุ่มทั้งหมดที่คุณเข้าร่วม)[^\d\n]{0,120}\(\s*(\d[\d,.\s]{0,9})\s*\)/iu,
+            /(?:groups?\s+you(?:'|’)?ve\s+joined|กลุ่มที่คุณเข้าร่วม)[^\d\n]{0,40}\(\s*(\d[\d,.\s]{0,9})\s*\)/iu,
           ];
           let best = 0;
           for (const t of texts)
             for (const re of pats) {
               const m = t.match(re);
-              if (m) best = Math.max(best, Number(m[1]));
+              if (m) best = Math.max(best, parseExpectedCount(m[1]));
             }
           return best;
         };
@@ -1268,7 +1293,8 @@ export async function scanJoinedGroupsBatched(tabId, pass = 1, onBatch = async (
           const max = Math.max(0, m.height - m.client);
           const remaining = Math.max(0, max - m.top);
           if (remaining <= 6) {
-            await sleep(expected > 0 && map.size < expected ? 45 : 35);
+            const needMore = expected === 0 || map.size < expected;
+            await sleep(needMore ? 320 : 120);
             collect();
             expected = Math.max(expected, expectedFromPage());
             const m2 = metrics();
@@ -1276,7 +1302,8 @@ export async function scanJoinedGroupsBatched(tabId, pass = 1, onBatch = async (
             else stable = 0;
             lastSize = map.size;
             lastHeight = m2.height;
-            if (stable >= 3) {
+            const requiredStable = expected > 0 && map.size >= expected ? 3 : 6;
+            if (stable >= requiredStable) {
               done = true;
               break;
             }
@@ -1284,8 +1311,10 @@ export async function scanJoinedGroupsBatched(tabId, pass = 1, onBatch = async (
               if (root) root.scrollTop = max;
               else window.scrollTo(0, max);
               saved.scrollTop = max;
+              root?.dispatchEvent(new Event('scroll', { bubbles: true }));
+              window.dispatchEvent(new Event('scroll'));
             } catch {}
-            await sleep(20);
+            await sleep(needMore ? 180 : 60);
             continue;
           }
           const step = Math.max(360, Math.min(5200, Math.floor(m.client * 0.9)));

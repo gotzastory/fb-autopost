@@ -1,7 +1,7 @@
 import type { Group, Identity } from './types';
 
 const BAD_NAME =
-  /^(groups|see all|your groups|discover|your feed|groups you manage|groups you've joined|groups you’ve joined|create new group|facebook groups|view group|see group|group|public group|joined|join|leave|members?|posts?|you|your content|facebook user|посмотреть группу|просмотреть группу|открыть группу|группа|عرض المجموعة|مشاهدة المجموعة|رؤية المجموعة|المجموعة|ver grupo|voir le groupe|xem nhóm|nhóm)$/iu;
+  /^(groups|see all|your groups|discover|your feed|groups you manage|groups you've joined|groups you’ve joined|create new group|facebook groups|view group|see group|group|public group|joined|join|leave|members?|posts?|you|your content|facebook user|กลุ่ม|ดูทั้งหมด|กลุ่มของคุณ|ค้นพบ|ฟีดของคุณ|กลุ่มที่คุณจัดการ|กลุ่มที่คุณเข้าร่วม|กลุ่มทั้งหมดที่คุณเข้าร่วม|สร้างกลุ่มใหม่|ดูกลุ่ม|เปิดกลุ่ม|เข้าร่วม|เข้าร่วมแล้ว|ออกจากกลุ่ม|สมาชิก|โพสต์|ส่วนตัว|สาธารณะ|กลุ่มสาธารณะ|посмотреть группу|просмотреть группу|открыть группу|группа|عرض المجموعة|مشاهدة المجموعة|رؤية المجموعة|المجموعة|ver grupo|voir le groupe|xem nhóm|nhóm)$/iu;
 const DATE_ONLY = /^(sun|mon|tue|wed|thu|fri|sat)\w*,?\s+.+\d{4}(?:\s+at\s+.+)?$/i;
 const NON_PAGE_NAME =
   /^(?:chat(?:\s+history(?:\s+is\s+missing)?)?|chat\s+history|invitations?(?:\s+\d+\s+(?:new|pending))?|invites?(?:\s+\d+\s+(?:new|pending))?|messages?(?:\s+\d+)?|notifications?(?:\s+\d+)?|messenger|advertise|advertising|advertisement|live video|photo\/?video|reel|dashboard|edit profile|report a problem|create post|promote|switch now|switch back|activate|pages?|pages you manage|see all pages|see all profiles|home|marketplace|settings|log out)$/i;
@@ -13,10 +13,12 @@ export function cleanName(value: unknown): string {
     .trim()
     .replace(/\s+(?:you\s+)?(?:last\s+)?visited\s+.+$/i, '')
     .replace(/\s+last active\s+.+$/i, '')
+    .replace(/\s+เข้าชมครั้งล่าสุดเมื่อ\s+.+$/i, '')
+    .replace(/\s+เคลื่อนไหวล่าสุดเมื่อ\s+.+$/i, '')
     .replace(/\s+tagged everyone.*$/i, '')
     .replace(/\s+\d+\s+(?:new\s+)?(?:posts?|messages?|notifications?)\s*$/i, '')
     .replace(/\s+(?:a few\s+)?(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\s+ago\s*$/i, '')
-    .replace(/\s+\d+\s*(?:members?|posts?)\s*$/i, '')
+    .replace(/\s+\d+\s*(?:members?|posts?|โพสต์ใหม่|โพสต์|ข้อความ|การแจ้งเตือน)\s*$/i, '')
     .trim();
 }
 

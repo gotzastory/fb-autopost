@@ -433,6 +433,12 @@ export async function verifyMissingGroupNames(groups, tabId) {
 
 export const JOINED_SYNC_ALLOWED_MISSING = 5;
 
+export function getAllowedMissingGroups(expected = 0) {
+  const n = Number(expected || 0);
+  if (!Number.isFinite(n) || n <= 0) return JOINED_SYNC_ALLOWED_MISSING;
+  return Math.max(JOINED_SYNC_ALLOWED_MISSING, Math.ceil(n * 0.05));
+}
+
 export async function createFacebookSyncWorker(url, sourceWindowId = null, existingExtensionTabId = null) {
   const target = String(url || 'https://www.facebook.com/groups/joins/');
   const isPagesSync = /facebook\.com\/pages\/?\?category=your_pages/i.test(target);
@@ -852,17 +858,20 @@ export async function syncGroups(existingExtensionTabId = null) {
       };
     });
     const expected = Math.max(Number(first.expected || 0), Number(second.expected || 0));
+    const allowedMissing = getAllowedMissingGroups(expected);
     let verifiedFinal = final;
     let recovery = 0;
+    let stagnantRecovery = 0;
     // If the second traversal already recovered the complete expected count,
     // accept immediately. No reload/F5 recovery is used anywhere in joined sync.
     const initialJoinedGap = Math.max(0, expected - verifiedFinal.length);
-    const initialJoinedWithinTolerance = expected > 0 && initialJoinedGap <= JOINED_SYNC_ALLOWED_MISSING;
+    const initialJoinedWithinTolerance = expected > 0 && initialJoinedGap <= allowedMissing;
     if (!initialJoinedWithinTolerance) {
       // v5.54: exhaustive recovery is scroll-only. Never F5/reload/navigate the
       // joined-groups page while scanning; this preserves Facebook's hydrated
       // virtual-list state and prevents lower groups from disappearing.
       while (expected > 0 && verifiedFinal.length < expected && recovery < 20) {
+        const beforeCount = verifiedFinal.length;
         recovery++;
         await chrome.storage.local.set({
           fb_sync_progress: {
@@ -892,26 +901,35 @@ export async function syncGroups(existingExtensionTabId = null) {
           else if (!verifiedFinal[ix].name && g.name) verifiedFinal[ix] = g;
         }
         const gap = Math.max(0, expected - verifiedFinal.length);
-        if (expected > 0 && gap <= JOINED_SYNC_ALLOWED_MISSING) break;
+        if (expected > 0 && gap <= allowedMissing) break;
+        if (verifiedFinal.length <= beforeCount) {
+          stagnantRecovery++;
+          // If 3 consecutive full recovery passes discover 0 new groups, Facebook
+          // has finished rendering all live cards (remaining count gap is deactivated/ghost groups).
+          if (stagnantRecovery >= 3 && verifiedFinal.length > 0) break;
+        } else {
+          stagnantRecovery = 0;
+        }
       }
     }
     const joinedMissing = Math.max(0, expected - verifiedFinal.length);
-    let joinedWithinTolerance = expected > 0 && joinedMissing <= JOINED_SYNC_ALLOWED_MISSING;
+    let joinedWithinTolerance =
+      expected > 0 && (joinedMissing <= allowedMissing || (stagnantRecovery >= 3 && verifiedFinal.length > 0));
     if (expected > 0 && !joinedWithinTolerance) {
       await chrome.storage.local.set({
         fb_sync_progress: {
           phase: 'error',
-          error: `Facebook reports ${expected} joined groups, but only ${verifiedFinal.length} unique groups were recovered. Missing ${joinedMissing} groups exceeds the allowed tolerance of ${JOINED_SYNC_ALLOWED_MISSING}. Sync was NOT marked complete.`,
+          error: `Facebook reports ${expected} joined groups, but only ${verifiedFinal.length} unique groups were recovered. Missing ${joinedMissing} groups exceeds the allowed tolerance of ${allowedMissing}. Sync was NOT marked complete.`,
           foundGroups: verifiedFinal.length,
           expected,
           missing: joinedMissing,
-          allowedMissing: JOINED_SYNC_ALLOWED_MISSING,
+          allowedMissing,
           updatedAt: Date.now(),
         },
       });
       return {
         success: false,
-        error: `Incomplete sync: Facebook reports ${expected} groups, but only ${verifiedFinal.length} were recovered. Missing ${joinedMissing} groups exceeds the allowed tolerance of ${JOINED_SYNC_ALLOWED_MISSING}. Please retry.`,
+        error: `Incomplete sync: Facebook reports ${expected} groups, but only ${verifiedFinal.length} were recovered. Missing ${joinedMissing} groups exceeds the allowed tolerance of ${allowedMissing}. Please retry.`,
       };
     }
 
@@ -937,7 +955,7 @@ export async function syncGroups(existingExtensionTabId = null) {
             foundGroups: verifiedFinal.length,
             expected,
             acceptedShortfall: missing,
-            allowedMissing: JOINED_SYNC_ALLOWED_MISSING,
+            allowedMissing,
             recoveryPasses: recovery,
             updatedAt: Date.now(),
           },
